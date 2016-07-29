@@ -25,11 +25,14 @@ using namespace std;
 
 const long imCols  = 1000;
 const long ccdCols = 452*2;
-const long nOS     = (imCols/2 - ccdCols/2)-4;
-const long lStart  = ccdCols/2;
+const long nIgnore = 3;
+const long nOS     = (imCols/2 - ccdCols/2)-nIgnore-1;
+const long lStart  = ccdCols/2+nIgnore;
 const long lEnd    = lStart+nOS;
-const long rStart  = imCols/2+1;
-const long rEnd    = rStart + nOS;
+const long rStart  = imCols/2;
+const long rEnd    = rStart+nOS;
+
+const int  nMeanTrim = 4;
 
 const int kSaveSamplesFlag = 1;
 
@@ -179,14 +182,21 @@ int procSkipperImage(const char *inFile, const char *outF, const int opt = 0){
       naxes[0] /= nSamples;
       const int nRows = naxes[1];
       
+      double osAuxV[nOS];
       for (int s = 0; s < nSamples; ++s){
         for (int j = 0; j < totpixSkp; ++j) outArray[j]=inArray[nSamples*j+s];
         for (int r = 0; r < nRows; ++r){
           double* rowPtr = outArray+imCols*r;
-          double lMean = accumulate(rowPtr+lStart, rowPtr+lEnd, 0);
-          lMean = lMean/nOS;
-          double rMean = accumulate(rowPtr+rStart, rowPtr+rEnd, 0);
-          rMean = rMean/nOS;
+          /* compute stable mean for the OS pixels */
+          // left side
+          partial_sort_copy(rowPtr+lStart, rowPtr+lEnd, osAuxV, osAuxV+nOS);
+          double lMean = (nOS>2*nMeanTrim)? accumulate(osAuxV+nMeanTrim, osAuxV+(nOS-nMeanTrim), 0.0) : accumulate(osAuxV, osAuxV, 0.0);
+          lMean = (nOS>4)? lMean/(nOS-nMeanTrim*2) : lMean/nOS;
+          // right side
+          partial_sort_copy(rowPtr+rStart, rowPtr+rEnd, osAuxV, osAuxV+nOS);
+          double rMean = (nOS>2*nMeanTrim)? accumulate(osAuxV+nMeanTrim, osAuxV+(nOS-nMeanTrim), 0.0) : accumulate(osAuxV, osAuxV, 0.0);
+          rMean = (nOS>4)? rMean/(nOS-nMeanTrim*2) : rMean/nOS;
+          // subtract OS mean for each sample
           for (int c = 0; c < imCols/2; ++c){
             *(rowPtr+c) -= lMean;
             *(rowPtr+imCols/2+c) -= rMean;
@@ -242,29 +252,6 @@ double mean(const double *v, const int &N){
     sum+=temparray[i];
   }
   return sum/(nMax-nMin);
-}
-
-void computeOvscMean(fitsfile  *infptr, long *fpixel, long *lpixel, vector<double> &ovrscMean){
-  
-  int status = 0;
-  double nulval = 0.;
-  int anynul = 0;
-  
-  long inc[2]={1,1};
-  const int osL  = (lpixel[0]-fpixel[0]+1);
-  const int nCol = (lpixel[1]-fpixel[1]+1);
-  const long npix =  osL*nCol;
-  double* sArray = new double[npix];
-  /* Read the images as doubles, regardless of actual datatype. */
-  fits_read_subset(infptr, TDOUBLE, fpixel, lpixel, inc, &nulval, sArray, &anynul, &status);
-
-//   cout << osL << " " << nCol << " " << npix << endl;
-  
-  ovrscMean.resize(nCol);
-  for(int l=0;l<nCol;++l){
-    ovrscMean[l] = mean(sArray + osL*l, osL ); 
-  }
-  delete[] sArray;
 }
 
 
@@ -414,3 +401,5 @@ int main(int argc, char *argv[])
   
   // status = computeImage( inFile,  outFile.c_str(), singleHdu);
 }
+
+
