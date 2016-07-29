@@ -367,7 +367,6 @@ int main(int argc, char *argv[])
     cout << bold << "\nThe output will be saved in the file:\n\t" << normal << outFile << endl;
   }
 
-
   int status  = procSkipperImage(inFile.c_str(), outFile.c_str(), opt);
 
   if (status != 0){ 
@@ -382,24 +381,6 @@ int main(int argc, char *argv[])
 
   // return status;
   return 0;
-  
-  
-  
-  /* Overwrite the output file if it already exist */
-  if(fileExist(outFile.c_str())){
-    cout << yellow << "\nThe output file exist. " << normal;
-    deleteFile(outFile.c_str());
-  }
-  
-  // /* Do the actual processing */
-  // int status = procSkipperImage( inFile,  outFile.c_str(), singleHdu);
-  // if (status != 0){ 
-  //   fits_report_error(stderr, status);
-  //   return status;
-  // }
-  
-  
-  // status = computeImage( inFile,  outFile.c_str(), singleHdu);
 }
 
 
